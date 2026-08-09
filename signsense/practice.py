@@ -18,23 +18,28 @@ import cv2
 import numpy as np
 
 from . import ui
-from .features import landmarks_to_features
+from .features import DUAL_FEATURE_DIM, FEATURE_DIM, dual_hand_features, landmarks_to_features
 from .model import SignClassifier
 from .speech import Speaker
-from .tracker import HandTracker
+from .tracker import HandTracker, hands_by_side
 from .voting import StablePredictor
 
 ROOT = Path(__file__).resolve().parent.parent
 MODEL_PATH = ROOT / "models" / "hand_landmarker.task"
 CLASSIFIER_PATH = ROOT / "models" / "classifier.pkl"
+CLASSIFIER_PATH_2H = ROOT / "models" / "classifier_2h.pkl"
 
 FLASH_SECONDS = 0.9  # brief pause on a correct hit before the next prompt engages
 
 
 class PracticeApp:
-    def __init__(self, camera_index: int = 0, *, speech: bool = True) -> None:
-        self.tracker = HandTracker(MODEL_PATH, max_hands=1)
-        self.classifier = SignClassifier.try_load(CLASSIFIER_PATH)
+    def __init__(self, camera_index: int = 0, *, speech: bool = True, two_hand: bool = False,
+                 classifier_path: Optional[Path] = None) -> None:
+        self.two_hand = two_hand
+        self.tracker = HandTracker(MODEL_PATH, max_hands=2 if two_hand else 1)
+        path = classifier_path or (CLASSIFIER_PATH_2H if two_hand else CLASSIFIER_PATH)
+        self.classifier_path = path
+        self.classifier = SignClassifier.try_load(path)
         self.camera_index = camera_index
         self.predictor = StablePredictor()
         self.speaker = Speaker(enabled=speech)
@@ -53,8 +58,9 @@ class PracticeApp:
 
     def run(self) -> int:
         if self.classifier is None:
-            print(f"No trained model found at {CLASSIFIER_PATH}.")
-            print("Run  python -m signsense.collect  then  python -m signsense.train  first.")
+            print(f"No trained model found at {self.classifier_path}.")
+            hand_flag = " --two-hand" if self.two_hand else ""
+            print(f"Run  python -m signsense.collect{hand_flag}  then  python -m signsense.train{hand_flag}  first.")
             return 1
         if len(self.classifier.classes_) < 2:
             print("Need at least 2 trained signs to play Practice mode — collect and train more first.")
@@ -64,7 +70,7 @@ class PracticeApp:
         if not cap.isOpened():
             print("ERROR: could not open webcam.")
             return 1
-        win = "SignSense — Practice"
+        win = "SignSense — Practice" + (" (2-hand)" if self.two_hand else "")
         cv2.namedWindow(win, cv2.WINDOW_NORMAL)
         print(f"SignSense practice — {len(self.classifier.classes_)} signs  ·  N skip · M mute · Q quit")
 
@@ -99,6 +105,11 @@ class PracticeApp:
             self._print_summary()
         return 0
 
+    def _extract_features(self, hands: list) -> np.ndarray:
+        if self.two_hand:
+            return dual_hand_features(hands_by_side(hands))
+        return landmarks_to_features(hands[0].landmarks)
+
     def _next_round(self) -> None:
         choices = [c for c in self.classifier.classes_ if c != self.target] or list(self.classifier.classes_)
         self.target = random.choice(choices)
@@ -114,7 +125,7 @@ class PracticeApp:
         if not hands:
             self.predictor.update(None)
             return
-        feat = landmarks_to_features(hands[0].landmarks)
+        feat = self._extract_features(hands)
         label, conf = self.classifier.predict(feat)
         stable = self.predictor.update(label, conf)
         if stable is None:
@@ -146,8 +157,11 @@ class PracticeApp:
         ui.glow_dot(frame, (34, 37), 10, ui.ACCENT, intensity=0.3)
         cv2.circle(frame, (34, 37), 5, ui.ACCENT, -1, cv2.LINE_AA)
         ui.put_text(frame, "PRACTICE", (50, 42), scale=0.5, color=ui.ACCENT, weight=2)
+        badge_x = 14 + panel_w - 78
+        if self.two_hand:
+            ui.chip(frame, "2-HAND", badge_x - 84, 20, color=ui.ACCENT_HOT)
         if not self.speaker.enabled:
-            ui.chip(frame, "MUTED", 14 + panel_w - 78, 20, color=ui.TEXT_MUTED)
+            ui.chip(frame, "MUTED", badge_x, 20, color=ui.TEXT_MUTED)
 
         flashing = time.perf_counter() < self._flash_until
         prompt_color = ui.SUCCESS if flashing else ui.TEXT
@@ -184,8 +198,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="SignSense — Practice/Match mode")
     parser.add_argument("--camera", type=int, default=0)
     parser.add_argument("--no-speech", action="store_true")
+    parser.add_argument("--two-hand", action="store_true", help="Practice two-handed signs")
+    parser.add_argument("--model", type=Path, default=None)
     args = parser.parse_args()
-    return PracticeApp(camera_index=args.camera, speech=not args.no_speech).run()
+    return PracticeApp(
+        camera_index=args.camera, speech=not args.no_speech,
+        two_hand=args.two_hand, classifier_path=args.model,
+    ).run()
 
 
 if __name__ == "__main__":

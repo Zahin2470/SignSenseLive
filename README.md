@@ -44,6 +44,9 @@ No pretrained sign-language dataset. A `RandomForestClassifier` trains on *your*
 ### 🎯 Temporal-Smoothed Prediction
 Raw per-frame predictions flicker on live video — that's normal, not a bug. Majority-vote smoothing across the last 8 frames debounces it into a stable, confident reading.
 
+### 👐 Two-Handed Signs
+A separate `--two-hand` mode captures both hands into a single 128-dim feature vector (63 shape dims per hand + a presence flag each), so an absent hand is never confused with one that just happens to sit near the normalized origin. Own dataset, own model file — the single-hand pipeline is untouched.
+
 </td>
 <td width="50%" valign="top">
 
@@ -55,6 +58,9 @@ Every recognized sign is spoken aloud in `live` mode — non-blocking (a backgro
 
 ### 📊 Confusion Matrix Dashboard
 Every `train` run renders a heatmap showing exactly which signs get mixed up with which — overall accuracy hides that a model can be 90% accurate while two specific signs are nearly indistinguishable to it.
+
+### 🏃 Motion-Based Signs
+For signs that move (swipes, J/Z-style letters) rather than hold a pose: `collect_motion` records a short clip, and hand-engineered trajectory features (start/mid/end hand shape, net displacement, path length, a straightness ratio) summarize it into one sample — no recurrent model, no sequence-length headaches, still trains on a laptop CPU.
 
 </td>
 </tr>
@@ -96,6 +102,9 @@ flowchart LR
 > [!TIP]
 > **Why RandomForest, not a neural net?** Hand-collected datasets here are realistically a few hundred samples per sign, not thousands. A forest of shallow trees on well-normalized features generalizes better at that scale, trains instantly on a laptop CPU, and needs no GPU — a deliberate choice, not a shortcut.
 
+> [!NOTE]
+> `--two-hand` and `--motion` follow the exact same pipeline above — only the feature-extraction step changes (dual-hand shape+presence vectors, or start/mid/end shape + trajectory stats for motion). Each gets its own dataset file and model file, so switching modes never overwrites another mode's data.
+
 ---
 
 ## 🎮 Controls
@@ -118,6 +127,15 @@ flowchart LR
 | `M` | Mute / unmute text-to-speech |
 | `N` | *(Practice only)* Skip to a new random sign |
 | `Q` / `Esc` | Exit — Practice mode prints a session summary (accuracy, best streak, avg reaction time) |
+
+### Motion Collect & Live
+
+| Key | Action |
+|:---:|:---|
+| `L` | *(Collect only)* Type a new label |
+| `SPACE` | Start recording a clip — press again to stop and save/predict |
+| `M` | *(Live only)* Mute / unmute text-to-speech |
+| `Q` / `Esc` | Exit |
 
 ---
 
@@ -142,33 +160,56 @@ python main.py live       # recognize signs live, speaks each one aloud
 python main.py practice   # quiz mode — it prompts, you sign, it scores you
 ```
 
+**Two-handed signs** — own dataset and model, add `--two-hand` to collect/train/live/practice:
+
+```bash
+python main.py collect --two-hand
+python main.py train --two-hand
+python main.py live --two-hand
+```
+
+**Motion-based signs** (swipes, moving letters) — dedicated modes, no flag needed:
+
+```bash
+python main.py collect_motion   # SPACE to start recording a clip, SPACE again to stop
+python main.py train --motion
+python main.py live_motion      # SPACE to record, then it predicts on the completed clip
+```
+
 ---
 
 ## 📁 Project Layout
 
 ```text
 SignSenseLive/
-├── main.py                    # CLI entry point: collect / train / live / practice
+├── main.py                      # CLI entry point: collect / collect_motion / train / live / live_motion / practice
 ├── requirements.txt
 ├── signsense/
-│   ├── tracker.py             # Single-hand MediaPipe wrapper
-│   ├── features.py            # Landmark -> invariant feature vector transformer
-│   ├── dataset.py             # CSV storage for labeled samples
-│   ├── model.py                # RandomForest classifier train/predict/save/load
-│   ├── voting.py               # Temporal majority-vote prediction smoothing (shared)
-│   ├── confusion.py            # Confusion-matrix heatmap rendering
-│   ├── speech.py               # Fail-soft, non-blocking text-to-speech
-│   ├── collect.py             # Data collection camera application
-│   ├── live.py                 # Live recognition app (voting + speech)
-│   ├── practice.py             # Quiz / match mode
-│   └── ui.py                   # UI design system (Poppins, glass panels, glow effect)
-├── assets/fonts/               # Poppins font family (OFL-licensed)
+│   ├── tracker.py               # MediaPipe wrapper (1 or 2 hands) + Left/Right organizing helper
+│   ├── features.py              # Single and dual-hand invariant feature vector transformers
+│   ├── motion_features.py       # Trajectory feature transformer for motion-based signs
+│   ├── dataset.py               # CSV storage for labeled samples (any fixed feature width)
+│   ├── model.py                 # RandomForest classifier train/predict/save/load
+│   ├── voting.py                # Temporal majority-vote prediction smoothing (shared)
+│   ├── confusion.py             # Confusion-matrix heatmap rendering
+│   ├── speech.py                # Fail-soft, non-blocking text-to-speech
+│   ├── collect.py               # Data collection camera app — static, single/two-hand
+│   ├── collect_motion.py        # Data collection camera app — motion clips
+│   ├── live.py                  # Live recognition app — static, single/two-hand
+│   ├── live_motion.py           # Live recognition app — motion signs
+│   ├── practice.py              # Quiz / match mode — static, single/two-hand
+│   └── ui.py                    # UI design system (Poppins, glass panels, glow effect)
+├── assets/fonts/                # Poppins font family (OFL-licensed)
 ├── models/
-│   ├── hand_landmarker.task    # MediaPipe task model (you provide this)
-│   ├── classifier.pkl          # Saved trained classifier
-│   └── confusion_matrix.png    # Saved after every `train` run
+│   ├── hand_landmarker.task     # MediaPipe task model (you provide this)
+│   ├── classifier.pkl           # Single-hand static classifier
+│   ├── classifier_2h.pkl        # Two-handed static classifier
+│   ├── classifier_motion.pkl    # Motion-sign classifier
+│   └── confusion_matrix*.png    # Saved after every `train` run
 └── data/
-    └── samples.csv             # Labeled feature samples dataset
+    ├── samples.csv              # Single-hand static samples
+    ├── samples_2h.csv           # Two-handed static samples
+    └── samples_motion.csv       # Motion-sign clip samples
 ```
 
 ---
@@ -180,19 +221,19 @@ SignSenseLive/
 <td width="50%" valign="top">
 
 **➕ More signs**
-Just run `collect` then `train` again — zero code changes. The classifier adapts to whatever labels exist in `data/samples.csv`.
+Just run `collect` then `train` again — zero code changes. The classifier adapts to whatever labels exist in the samples file.
 
-**👐 Two-handed signs**
-Bump `tracker.py`'s `max_hands` (default `1`) and extend `features.py` to concatenate both hands' feature vectors.
+**🔄 Swap the classifier**
+`SignClassifier` in `model.py` wraps a standard train/predict/save/load API — swap `RandomForestClassifier` for any scikit-learn-compatible estimator without touching any of the camera apps.
 
 </td>
 <td width="50%" valign="top">
 
-**🏃 Motion-based signs**
-Letters like J or Z involve movement, not a static pose — this architecture sees one frame at a time. You'd need a short landmark *sequence* per sample and a sequence model (or hand-engineered velocity features) instead of a single-frame classifier.
+**🎮 Practice mode for two-hand / motion**
+`practice.py` currently quizzes single- and two-handed static signs. A motion-sign practice mode would reuse `collect_motion.py`'s start/stop recording UX plus `live_motion.py`'s prediction call — the pieces exist, they're just not wired into a quiz loop yet.
 
-**🔄 Swap the classifier**
-`SignClassifier` in `model.py` wraps a standard train/predict/save/load API — swap `RandomForestClassifier` for any scikit-learn-compatible estimator without touching `collect.py`, `live.py`, or `practice.py`.
+**🌐 Beyond a webcam**
+Everything here is MediaPipe + scikit-learn, both of which also run in the browser (MediaPipe Tasks Web) or on-device (TFLite) — the feature-normalization math would carry over, though the camera apps themselves would need a full rewrite.
 
 </td>
 </tr>

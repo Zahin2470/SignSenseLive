@@ -83,3 +83,18 @@ class HandTracker:
 
     def close(self) -> None:
         self._landmarker.close()
+
+
+def hands_by_side(hands: list[HandResult]) -> dict:
+    """Organize detected hands into {'Left': landmarks|None, 'Right': landmarks|None}.
+    If MediaPipe ever reports two hands with the same handedness label
+    (rare, but happens on ambiguous frames), keep the higher-confidence
+    one rather than silently dropping/overwriting without a rule."""
+    result: dict = {"Left": None, "Right": None}
+    best_score: dict = {"Left": -1.0, "Right": -1.0}
+    for hr in hands:
+        side = hr.handedness if hr.handedness in ("Left", "Right") else "Right"
+        if hr.score > best_score[side]:
+            result[side] = hr.landmarks
+            best_score[side] = hr.score
+    return result
