@@ -17,7 +17,7 @@ from typing import Optional
 
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
 
 
@@ -48,12 +48,14 @@ class SignClassifier:
         self.clf.fit(X_train, y_train)
         self.classes_ = list(self.clf.classes_)
         y_pred = self.clf.predict(X_test)
+        cm = confusion_matrix(y_test, y_pred, labels=self.classes_)
         return {
             "accuracy": float(accuracy_score(y_test, y_pred)),
             "report": classification_report(y_test, y_pred, zero_division=0),
             "n_train": len(X_train),
             "n_test": len(X_test),
             "classes": self.classes_,
+            "confusion_matrix": cm,
         }
 
     def predict(self, features: np.ndarray) -> tuple[str, float]:

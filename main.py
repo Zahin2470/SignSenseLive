@@ -5,6 +5,7 @@ Three modes, one entry point:
     python main.py collect     # record labeled hand-sign samples
     python main.py train       # train the classifier from collected samples
     python main.py live        # run the live recognizer
+    python main.py practice    # quiz mode: match the prompted sign
 
 Each also runs standalone: `python -m signsense.collect`, etc.
 """
@@ -22,8 +23,8 @@ if str(ROOT) not in sys.path:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="SignSense")
-    parser.add_argument("mode", choices=["collect", "train", "live"], help="What to run")
-    parser.add_argument("--camera", type=int, default=0, help="Camera index (collect/live only)")
+    parser.add_argument("mode", choices=["collect", "train", "live", "practice"], help="What to run")
+    parser.add_argument("--camera", type=int, default=0, help="Camera index (collect/live/practice only)")
     args, remaining = parser.parse_known_args()
 
     if args.mode == "collect":
@@ -32,6 +33,9 @@ def main() -> int:
     if args.mode == "live":
         from signsense.live import LiveApp
         return LiveApp(camera_index=args.camera).run()
+    if args.mode == "practice":
+        from signsense.practice import PracticeApp
+        return PracticeApp(camera_index=args.camera).run()
     if args.mode == "train":
         from signsense.train import main as train_main
         sys.argv = [sys.argv[0]] + remaining
