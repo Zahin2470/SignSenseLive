@@ -17,8 +17,10 @@ import cv2
 import numpy as np
 
 from . import ui
+from .features import WRIST
 from .model import SignClassifier
 from .motion_features import MOTION_FEATURE_DIM, sequence_to_motion_features
+from .skeleton import draw_skeleton
 from .speech import Speaker
 from .tracker import HandTracker
 
@@ -105,9 +107,15 @@ class LiveMotionApp:
         self._buffer = []
 
     def _draw(self, frame: np.ndarray, hands, w: int, h: int) -> np.ndarray:
+        if self.recording and len(self._buffer) >= 2:
+            trail_pts = [
+                (int(np.clip(f[WRIST][0], 0.0, 1.0) * (w - 1)), int(np.clip(f[WRIST][1], 0.0, 1.0) * (h - 1)))
+                for f in self._buffer
+            ]
+            ui.draw_trail(frame, trail_pts, ui.DANGER)
+
         for hr in hands:
-            for x, y, _z in hr.landmarks:
-                cv2.circle(frame, (int(x * w), int(y * h)), 3, ui.ACCENT_HOT, -1, cv2.LINE_AA)
+            draw_skeleton(frame, hr.landmarks, w, h)
 
         panel_w = min(w - 28, 400)
         frame = ui.glass_panel(frame, (14, 14), (14 + panel_w, 110), radius=18)

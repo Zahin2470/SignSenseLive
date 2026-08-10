@@ -19,6 +19,7 @@ import numpy as np
 from . import ui
 from .dataset import append_sample, class_counts, load_dataset
 from .features import DUAL_FEATURE_DIM, FEATURE_DIM, dual_hand_features, landmarks_to_features
+from .skeleton import draw_skeleton
 from .tracker import HandTracker, hands_by_side
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -85,8 +86,7 @@ class CollectApp:
 
     def _draw(self, frame: np.ndarray, hands, w: int, h: int) -> np.ndarray:
         for hr in hands:
-            for x, y, _z in hr.landmarks:
-                cv2.circle(frame, (int(x * w), int(y * h)), 3, ui.ACCENT_HOT, -1, cv2.LINE_AA)
+            draw_skeleton(frame, hr.landmarks, w, h)
 
         frame = ui.glass_panel(frame, (14, 14), (min(w - 14, 420), 92), radius=16)
         ui.glow_dot(frame, (34, 37), 10, ui.ACCENT if not self.capturing else ui.SUCCESS, intensity=0.32)

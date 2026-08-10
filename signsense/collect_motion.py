@@ -21,7 +21,9 @@ import numpy as np
 
 from . import ui
 from .dataset import append_sample, class_counts, load_dataset
+from .features import WRIST
 from .motion_features import MOTION_FEATURE_DIM, sequence_to_motion_features
+from .skeleton import draw_skeleton
 from .tracker import HandTracker
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -102,9 +104,15 @@ class CollectMotionApp:
         self._status_until = now + 2.0
 
     def _draw(self, frame: np.ndarray, hands, w: int, h: int) -> np.ndarray:
+        if self.recording and len(self._buffer) >= 2:
+            trail_pts = [
+                (int(np.clip(f[WRIST][0], 0.0, 1.0) * (w - 1)), int(np.clip(f[WRIST][1], 0.0, 1.0) * (h - 1)))
+                for f in self._buffer
+            ]
+            ui.draw_trail(frame, trail_pts, ui.DANGER)
+
         for hr in hands:
-            for x, y, _z in hr.landmarks:
-                cv2.circle(frame, (int(x * w), int(y * h)), 3, ui.ACCENT_HOT, -1, cv2.LINE_AA)
+            draw_skeleton(frame, hr.landmarks, w, h)
 
         frame = ui.glass_panel(frame, (14, 14), (min(w - 14, 440), 104), radius=16)
         dot_color = ui.DANGER if self.recording else ui.ACCENT

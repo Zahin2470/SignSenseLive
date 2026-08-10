@@ -47,6 +47,9 @@ Raw per-frame predictions flicker on live video — that's normal, not a bug. Ma
 ### 👐 Two-Handed Signs
 A separate `--two-hand` mode captures both hands into a single 128-dim feature vector (63 shape dims per hand + a presence flag each), so an absent hand is never confused with one that just happens to sit near the normalized origin. Own dataset, own model file — the single-hand pipeline is untouched.
 
+### 🌈 Animated Rainbow Skeleton
+Every camera app draws a full hand skeleton — bone connections and joints colored per-finger (thumb→pinky sweeps crimson→orange→green→blue→violet) — instead of plain dots, with fingertips gently pulsing so it reads as alive, not static.
+
 </td>
 <td width="50%" valign="top">
 
@@ -61,6 +64,9 @@ Every `train` run renders a heatmap showing exactly which signs get mixed up wit
 
 ### 🏃 Motion-Based Signs
 For signs that move (swipes, J/Z-style letters) rather than hold a pose: `collect_motion` records a short clip, and hand-engineered trajectory features (start/mid/end hand shape, net displacement, path length, a straightness ratio) summarize it into one sample — no recurrent model, no sequence-length headaches, still trains on a laptop CPU.
+
+### ✨ Motion Trail
+While recording a motion sign, the wrist's path draws as a fading, glowing trail — dim and thin at the tail, bright and thick at the head — so you can *see* the shape of the gesture you just made, both while collecting data and while performing a sign live.
 
 </td>
 </tr>
@@ -188,6 +194,8 @@ SignSenseLive/
 │   ├── tracker.py               # MediaPipe wrapper (1 or 2 hands) + Left/Right organizing helper
 │   ├── features.py              # Single and dual-hand invariant feature vector transformers
 │   ├── motion_features.py       # Trajectory feature transformer for motion-based signs
+│   ├── landmarks.py             # Rainbow per-finger color scheme + skeleton connection topology
+│   ├── skeleton.py              # Animated rainbow hand-skeleton renderer (pulsing fingertips)
 │   ├── dataset.py               # CSV storage for labeled samples (any fixed feature width)
 │   ├── model.py                 # RandomForest classifier train/predict/save/load
 │   ├── voting.py                # Temporal majority-vote prediction smoothing (shared)

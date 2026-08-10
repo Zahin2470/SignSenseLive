@@ -241,5 +241,40 @@ def progress_bar(frame, x: int, y: int, width: int, height: int, value: float) -
         cv2.rectangle(frame, (x, y), (x + fill, y + height), color, -1)
 
 
+def draw_trail(
+    frame: np.ndarray,
+    points: list,
+    color: tuple[int, int, int],
+    *,
+    dim_color: Optional[tuple[int, int, int]] = None,
+    max_alpha: float = 0.85,
+    base_thickness: int = 2,
+    head_radius: int = 9,
+) -> None:
+    """Fading motion trail through a list of (x, y) pixel points, oldest
+    first. One overlay + one blend regardless of trail length (cheap
+    even with 30+ points), tail dimmer/thinner, head brighter/thicker,
+    with a glow at the most recent point — used to show the path a
+    hand traveled while recording a motion sign.
+    """
+    n = len(points)
+    if n == 0:
+        return
+    if dim_color is None:
+        dim_color = tuple(int(c * 0.32) for c in color)
+    if n == 1:
+        glow_dot(frame, points[0], head_radius, color, intensity=0.3)
+        return
+
+    overlay = frame.copy()
+    for i in range(1, n):
+        t = i / (n - 1)
+        thickness = max(1, int(round(base_thickness + t * 3)))
+        seg_color = tuple(int(dim_color[k] + (color[k] - dim_color[k]) * t) for k in range(3))
+        cv2.line(overlay, points[i - 1], points[i], seg_color, thickness, cv2.LINE_AA)
+    cv2.addWeighted(overlay, max_alpha, frame, 1.0 - max_alpha, 0, dst=frame)
+    glow_dot(frame, points[-1], head_radius, color, intensity=0.35)
+
+
 def smooth_toward(current: float, target: float, alpha: float = 0.35) -> float:
     return current * (1.0 - alpha) + target * alpha

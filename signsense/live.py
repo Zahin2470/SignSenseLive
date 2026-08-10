@@ -16,6 +16,7 @@ import numpy as np
 from . import ui
 from .features import DUAL_FEATURE_DIM, FEATURE_DIM, dual_hand_features, landmarks_to_features
 from .model import SignClassifier
+from .skeleton import draw_skeleton
 from .speech import Speaker
 from .tracker import HandTracker, hands_by_side
 from .voting import StablePredictor
@@ -100,8 +101,7 @@ class LiveApp:
 
     def _draw(self, frame: np.ndarray, hands, w: int, h: int) -> np.ndarray:
         for hr in hands:
-            for x, y, _z in hr.landmarks:
-                cv2.circle(frame, (int(x * w), int(y * h)), 3, ui.ACCENT_HOT, -1, cv2.LINE_AA)
+            draw_skeleton(frame, hr.landmarks, w, h)
 
         panel_w = min(w - 28, 360)
         frame = ui.glass_panel(frame, (14, 14), (14 + panel_w, 104), radius=18)
