@@ -9,6 +9,7 @@ predicts on the completed clip.
 
 from __future__ import annotations
 
+import math
 import time
 from pathlib import Path
 from typing import Optional
@@ -17,6 +18,7 @@ import cv2
 import numpy as np
 
 from . import ui
+from .audio import AudioManager
 from .features import WRIST
 from .model import SignClassifier
 from .motion_features import MOTION_FEATURE_DIM, sequence_to_motion_features
@@ -37,6 +39,7 @@ class LiveMotionApp:
         self.classifier = SignClassifier.try_load(self.classifier_path)
         self.camera_index = camera_index
         self.speaker = Speaker(enabled=speech)
+        self.audio = AudioManager()
         self.recording = False
         self._buffer: list[np.ndarray] = []
         self._last_hand: Optional[np.ndarray] = None
@@ -57,7 +60,8 @@ class LiveMotionApp:
         win = "SignSense — Live Motion"
         cv2.namedWindow(win, cv2.WINDOW_NORMAL)
         print(f"SignSense live motion — recognizing: {', '.join(self.classifier.classes_)}  ·  "
-              "SPACE start/stop · M mute · Q quit")
+              "SPACE start/stop · T theme · M mute · Q quit")
+        self.audio.play_music("ambient")
 
         try:
             while True:
@@ -73,17 +77,22 @@ class LiveMotionApp:
                     self._buffer.append(self._last_hand.copy())
 
                 frame = self._draw(frame, hands, w, h)
+                frame = ui.vignette(frame, strength=0.2)
                 cv2.imshow(win, frame)
                 key = cv2.waitKey(1) & 0xFF
                 if key in (ord("q"), ord("Q"), 27):
                     break
                 if key in (ord("m"), ord("M")):
                     self.speaker.toggle()
+                    self.audio.toggle_mute()
+                if key in (ord("t"), ord("T")):
+                    ui.set_theme(ui.next_theme_name())
                 if key == 32:
                     self._toggle_recording()
         finally:
             self.tracker.close()
             self.speaker.close()
+            self.audio.close()
             cap.release()
             cv2.destroyAllWindows()
         return 0
@@ -93,10 +102,12 @@ class LiveMotionApp:
             self.recording = True
             self._buffer = []
             self._result_label = None
+            self.audio.play_sfx("record_start")
             return
 
         self.recording = False
         n = len(self._buffer)
+        self.audio.play_sfx("record_stop")
         if n >= MIN_FRAMES:
             feat = sequence_to_motion_features(self._buffer)
             label, conf = self.classifier.predict(feat)
@@ -104,6 +115,7 @@ class LiveMotionApp:
             self._result_conf = conf
             self._result_until = time.perf_counter() + 3.0
             self.speaker.say(label)
+            self.audio.play_sfx("stable")
         self._buffer = []
 
     def _draw(self, frame: np.ndarray, hands, w: int, h: int) -> np.ndarray:
@@ -120,10 +132,16 @@ class LiveMotionApp:
         panel_w = min(w - 28, 400)
         frame = ui.glass_panel(frame, (14, 14), (14 + panel_w, 110), radius=18)
         dot_color = ui.DANGER if self.recording else ui.ACCENT
+        if self.recording:
+            beat = 0.5 + 0.5 * math.sin(time.perf_counter() * 6.0)
+            ui.glow_dot(frame, (34, 37), int(14 + 6 * beat), ui.DANGER, intensity=0.28)
         ui.glow_dot(frame, (34, 37), 10, dot_color, intensity=0.32)
         cv2.circle(frame, (34, 37), 5, dot_color, -1, cv2.LINE_AA)
         ui.put_text(frame, "SignSense", (50, 42), scale=0.58, color=ui.ACCENT, weight=2)
-        ui.chip(frame, "MOTION", 14 + panel_w - 92, 20, color=ui.ACCENT_HOT)
+        badge_x = 14 + panel_w - 92
+        ui.chip(frame, "MOTION", badge_x, 20, color=ui.ACCENT_HOT)
+        if self.audio.muted:
+            ui.chip(frame, "MUTED", badge_x - 84, 20, color=ui.TEXT_MUTED)
 
         if self.recording:
             ui.put_text(frame, f"\u25cf recording... {len(self._buffer)} frames", (24, 78), scale=0.5, color=ui.DANGER, shadow=False)

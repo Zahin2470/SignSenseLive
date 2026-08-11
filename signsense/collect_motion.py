@@ -12,6 +12,7 @@ natural extension but adds real complexity and isn't implemented here
 
 from __future__ import annotations
 
+import math
 import time
 from pathlib import Path
 from typing import Optional
@@ -20,6 +21,7 @@ import cv2
 import numpy as np
 
 from . import ui
+from .audio import AudioManager
 from .dataset import append_sample, class_counts, load_dataset
 from .features import WRIST
 from .motion_features import MOTION_FEATURE_DIM, sequence_to_motion_features
@@ -46,6 +48,7 @@ class CollectMotionApp:
         self._last_hand: Optional[np.ndarray] = None
         self._last_status = ""
         self._status_until = 0.0
+        self.audio = AudioManager()
 
     def run(self) -> int:
         cap = cv2.VideoCapture(self.camera_index)
@@ -54,7 +57,8 @@ class CollectMotionApp:
             return 1
         win = "SignSense — Collect Motion"
         cv2.namedWindow(win, cv2.WINDOW_NORMAL)
-        print("SignSense motion collector — L to name a label, SPACE to start/stop a recording, Q to quit")
+        print("SignSense motion collector — L label · SPACE start/stop · T theme · M mute · Q quit")
+        self.audio.play_music("ambient")
 
         try:
             while True:
@@ -70,12 +74,14 @@ class CollectMotionApp:
                     self._buffer.append(self._last_hand.copy())
 
                 frame = self._draw(frame, hands, w, h)
+                frame = ui.vignette(frame, strength=0.2)
                 cv2.imshow(win, frame)
                 key = cv2.waitKey(1) & 0xFF
                 if not self._handle_key(key):
                     break
         finally:
             self.tracker.close()
+            self.audio.close()
             cap.release()
             cv2.destroyAllWindows()
         return 0
@@ -84,6 +90,7 @@ class CollectMotionApp:
         if not self.recording:
             self.recording = True
             self._buffer = []
+            self.audio.play_sfx("record_start")
         else:
             self.recording = False
             n = len(self._buffer)
@@ -95,6 +102,7 @@ class CollectMotionApp:
                 feat = sequence_to_motion_features(self._buffer)
                 append_sample(self.data_path, self.label, feat, feature_dim=MOTION_FEATURE_DIM)
                 self._set_status(f"saved ({n} frames)", time.perf_counter())
+                self.audio.play_sfx("record_stop")
             except Exception as exc:
                 self._set_status(f"error: {exc}", time.perf_counter())
             self._buffer = []
@@ -116,11 +124,17 @@ class CollectMotionApp:
 
         frame = ui.glass_panel(frame, (14, 14), (min(w - 14, 440), 104), radius=16)
         dot_color = ui.DANGER if self.recording else ui.ACCENT
+        if self.recording:
+            beat = 0.5 + 0.5 * math.sin(time.perf_counter() * 6.0)
+            ui.glow_dot(frame, (34, 37), int(14 + 6 * beat), ui.DANGER, intensity=0.28)
         ui.glow_dot(frame, (34, 37), 10, dot_color, intensity=0.35)
         cv2.circle(frame, (34, 37), 5, dot_color, -1, cv2.LINE_AA)
         label_text = self._edit_buffer + "_" if self._editing_label else self.label
         ui.put_text(frame, label_text, (50, 42), scale=0.6, color=ui.ACCENT, weight=2)
-        ui.chip(frame, "MOTION", min(w - 14, 440) - 96, 20, color=ui.ACCENT_HOT)
+        badge_x = min(w - 14, 440) - 96
+        ui.chip(frame, "MOTION", badge_x, 20, color=ui.ACCENT_HOT)
+        if self.audio.muted:
+            ui.chip(frame, "MUTED", badge_x - 84, 20, color=ui.TEXT_MUTED)
 
         if self.recording:
             ui.put_text(frame, f"\u25cf recording... {len(self._buffer)} frames", (24, 72), scale=0.42, color=ui.DANGER, shadow=False)
@@ -142,7 +156,7 @@ class CollectMotionApp:
         if self._editing_label:
             hint = "Type label, ENTER to confirm, Esc to cancel"
         else:
-            hint = "L rename label \u00b7 SPACE start/stop recording \u00b7 Q quit"
+            hint = "L rename \u00b7 SPACE start/stop \u00b7 T theme \u00b7 M mute \u00b7 Q quit"
         ui.put_text(frame, hint, (14, hint_y), scale=0.42, color=ui.TEXT_MUTED, shadow=False)
         return frame
 
@@ -169,6 +183,10 @@ class CollectMotionApp:
             self._edit_buffer = ""
         if key == 32:
             self._toggle_recording()
+        if key in (ord("t"), ord("T")):
+            ui.set_theme(ui.next_theme_name())
+        if key in (ord("m"), ord("M")):
+            self.audio.toggle_mute()
         return True
 
 

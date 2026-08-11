@@ -1,9 +1,8 @@
 """SignSense.ui — shared visual design: palette, glass panels, custom
 typography. A trimmed-down sibling of the design system built for
 VisionPuzzle Studio (same techniques: PIL-rendered Poppins with glyph
-caching for speed, cheap layered drop shadows, concentric-circle glow)
-without that project's multi-theme switching, since this one only
-needs to look good, not be re-skinnable.
+caching for speed, cheap layered drop shadows, concentric-circle glow),
+now including the same switchable-theme approach.
 """
 
 from __future__ import annotations
@@ -21,15 +20,83 @@ except Exception:
     _PIL_OK = False
 
 # ── Palette (BGR) ───────────────────────────────────────────────────────────
-BG = (18, 16, 20)
-BG_ELEVATED = (30, 26, 34)
-STROKE = (90, 80, 100)
-TEXT = (240, 238, 242)
-TEXT_MUTED = (170, 164, 176)
-ACCENT = (210, 130, 255)     # violet — distinct from VisionPuzzle's gold, so screenshots don't look like reskins
-ACCENT_HOT = (140, 220, 255)
-SUCCESS = (120, 210, 150)
-DANGER = (90, 90, 220)
+# Plain module globals (not a class/dict lookup) so every file keeps
+# writing `ui.ACCENT`, `ui.BG`, etc. exactly as before — set_theme()
+# reassigns them in place, and since Python resolves `ui.X` by
+# attribute lookup at call time (not import time), every call site
+# picks up a new theme automatically. (Default *parameter values* like
+# `def f(color=ACCENT)` would NOT update this way — this module avoids
+# that pattern throughout.)
+
+THEMES: dict[str, dict[str, tuple[int, int, int]]] = {
+    "dark": {
+        "BG": (18, 16, 20), "BG_ELEVATED": (30, 26, 34),
+        "STROKE": (90, 80, 100), "TEXT": (240, 238, 242), "TEXT_MUTED": (170, 164, 176),
+        "ACCENT": (210, 130, 255), "ACCENT_HOT": (140, 220, 255),
+        "SUCCESS": (120, 210, 150), "DANGER": (90, 90, 220),
+    },
+    "light": {
+        "BG": (238, 240, 242), "BG_ELEVATED": (220, 222, 226),
+        "STROKE": (180, 175, 190), "TEXT": (30, 28, 34), "TEXT_MUTED": (105, 100, 115),
+        "ACCENT": (190, 70, 160), "ACCENT_HOT": (190, 130, 30),
+        "SUCCESS": (80, 155, 80), "DANGER": (55, 55, 195),
+    },
+    "neon": {
+        "BG": (12, 6, 18), "BG_ELEVATED": (30, 12, 42),
+        "STROKE": (160, 50, 190), "TEXT": (245, 245, 255), "TEXT_MUTED": (175, 145, 205),
+        "ACCENT": (255, 60, 220), "ACCENT_HOT": (60, 255, 230),
+        "SUCCESS": (140, 255, 60), "DANGER": (60, 40, 255),
+    },
+    "mono": {
+        "BG": (15, 15, 15), "BG_ELEVATED": (36, 36, 36),
+        "STROKE": (120, 120, 120), "TEXT": (245, 245, 245), "TEXT_MUTED": (170, 170, 170),
+        "ACCENT": (255, 255, 255), "ACCENT_HOT": (205, 205, 205),
+        "SUCCESS": (235, 235, 235), "DANGER": (150, 150, 150),
+    },
+}
+
+_CURRENT_THEME = "dark"
+BG = THEMES["dark"]["BG"]
+BG_ELEVATED = THEMES["dark"]["BG_ELEVATED"]
+STROKE = THEMES["dark"]["STROKE"]
+TEXT = THEMES["dark"]["TEXT"]
+TEXT_MUTED = THEMES["dark"]["TEXT_MUTED"]
+ACCENT = THEMES["dark"]["ACCENT"]
+ACCENT_HOT = THEMES["dark"]["ACCENT_HOT"]
+SUCCESS = THEMES["dark"]["SUCCESS"]
+DANGER = THEMES["dark"]["DANGER"]
+
+
+def set_theme(name: str) -> bool:
+    global _CURRENT_THEME, BG, BG_ELEVATED, STROKE, TEXT, TEXT_MUTED, ACCENT, ACCENT_HOT, SUCCESS, DANGER
+    theme = THEMES.get(name)
+    if theme is None:
+        return False
+    BG = theme["BG"]
+    BG_ELEVATED = theme["BG_ELEVATED"]
+    STROKE = theme["STROKE"]
+    TEXT = theme["TEXT"]
+    TEXT_MUTED = theme["TEXT_MUTED"]
+    ACCENT = theme["ACCENT"]
+    ACCENT_HOT = theme["ACCENT_HOT"]
+    SUCCESS = theme["SUCCESS"]
+    DANGER = theme["DANGER"]
+    _CURRENT_THEME = name
+    return True
+
+
+def get_theme_name() -> str:
+    return _CURRENT_THEME
+
+
+def theme_names() -> list[str]:
+    return list(THEMES.keys())
+
+
+def next_theme_name() -> str:
+    names = theme_names()
+    idx = names.index(_CURRENT_THEME) if _CURRENT_THEME in names else -1
+    return names[(idx + 1) % len(names)]
 
 # ── Typography ──────────────────────────────────────────────────────────────
 _FONT_DIR = Path(__file__).resolve().parent.parent / "assets" / "fonts"
@@ -274,6 +341,30 @@ def draw_trail(
         cv2.line(overlay, points[i - 1], points[i], seg_color, thickness, cv2.LINE_AA)
     cv2.addWeighted(overlay, max_alpha, frame, 1.0 - max_alpha, 0, dst=frame)
     glow_dot(frame, points[-1], head_radius, color, intensity=0.35)
+
+
+_VIGNETTE_CACHE: dict[tuple[int, int, int], np.ndarray] = {}
+
+
+def vignette(frame: np.ndarray, strength: float = 0.22) -> np.ndarray:
+    """Cached radial edge-darkening — cheap after the first frame at a
+    given resolution/strength, since the multiplicative mask is reused
+    rather than recomputed. Applied once per frame, after everything
+    else is drawn, for a subtle cinematic camera feel."""
+    h, w = frame.shape[:2]
+    key = (h, w, int(strength * 100))
+    mask = _VIGNETTE_CACHE.get(key)
+    if mask is None:
+        ys = np.linspace(-1, 1, h, dtype=np.float32)
+        xs = np.linspace(-1, 1, w, dtype=np.float32)
+        xv, yv = np.meshgrid(xs, ys)
+        r = np.sqrt(xv * xv + yv * yv)
+        mask = (1.0 - np.clip((r - 0.55) / 0.75, 0.0, 1.0) * strength).astype(np.float32)
+        _VIGNETTE_CACHE.clear()
+        _VIGNETTE_CACHE[key] = mask
+    out = frame.astype(np.float32)
+    out *= mask[..., None]
+    return np.clip(out, 0, 255).astype(np.uint8)
 
 
 def smooth_toward(current: float, target: float, alpha: float = 0.35) -> float:

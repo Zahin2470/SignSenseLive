@@ -14,6 +14,7 @@ import cv2
 import numpy as np
 
 from . import ui
+from .audio import AudioManager
 from .features import DUAL_FEATURE_DIM, FEATURE_DIM, dual_hand_features, landmarks_to_features
 from .model import SignClassifier
 from .skeleton import draw_skeleton
@@ -38,6 +39,7 @@ class LiveApp:
         self.camera_index = camera_index
         self.predictor = StablePredictor()
         self.speaker = Speaker(enabled=speech)
+        self.audio = AudioManager()
         self._last_spoken: Optional[str] = None
         self._conf_disp = 0.0
 
@@ -55,7 +57,9 @@ class LiveApp:
             return 1
         win = "SignSense — Live" + (" (2-hand)" if self.two_hand else "")
         cv2.namedWindow(win, cv2.WINDOW_NORMAL)
-        print(f"SignSense live — recognizing: {', '.join(self.classifier.classes_)}  ·  M mute · Q quit")
+        print(f"SignSense live — recognizing: {', '.join(self.classifier.classes_)}  ·  "
+              "T theme · M mute · Q quit")
+        self.audio.play_music("ambient")
 
         try:
             while True:
@@ -68,6 +72,7 @@ class LiveApp:
                 hands = self.tracker.process(frame, mirrored=True)
                 self._update_prediction(hands)
                 frame = self._draw(frame, hands, w, h)
+                frame = ui.vignette(frame, strength=0.2)
 
                 cv2.imshow(win, frame)
                 key = cv2.waitKey(1) & 0xFF
@@ -75,9 +80,13 @@ class LiveApp:
                     break
                 if key in (ord("m"), ord("M")):
                     self.speaker.toggle()
+                    self.audio.toggle_mute()
+                if key in (ord("t"), ord("T")):
+                    ui.set_theme(ui.next_theme_name())
         finally:
             self.tracker.close()
             self.speaker.close()
+            self.audio.close()
             cap.release()
             cv2.destroyAllWindows()
         return 0
@@ -97,6 +106,7 @@ class LiveApp:
         stable = self.predictor.update(label, conf)
         if stable is not None and stable != self._last_spoken:
             self.speaker.say(stable)
+            self.audio.play_sfx("stable")
             self._last_spoken = stable
 
     def _draw(self, frame: np.ndarray, hands, w: int, h: int) -> np.ndarray:

@@ -17,6 +17,7 @@ import cv2
 import numpy as np
 
 from . import ui
+from .audio import AudioManager
 from .dataset import append_sample, class_counts, load_dataset
 from .features import DUAL_FEATURE_DIM, FEATURE_DIM, dual_hand_features, landmarks_to_features
 from .skeleton import draw_skeleton
@@ -41,6 +42,7 @@ class CollectApp:
         self.capturing = False
         self._last_hands: list = []
         self._frame_counter = 0
+        self.audio = AudioManager()
 
     def run(self) -> int:
         cap = cv2.VideoCapture(self.camera_index)
@@ -49,8 +51,9 @@ class CollectApp:
             return 1
         win = "SignSense — Collect" + (" (2-hand)" if self.two_hand else "")
         cv2.namedWindow(win, cv2.WINDOW_NORMAL)
-        print("SignSense collector — L to name a label, SPACE to toggle capture, Q to quit"
+        print("SignSense collector — L to name a label, SPACE to toggle capture, T theme, M mute, Q to quit"
               + (" [two-hand mode]" if self.two_hand else ""))
+        self.audio.play_music("ambient")
 
         try:
             while True:
@@ -69,12 +72,14 @@ class CollectApp:
                     append_sample(self.data_path, self.label, feat, feature_dim=self.feature_dim)
 
                 frame = self._draw(frame, hands, w, h)
+                frame = ui.vignette(frame, strength=0.2)
                 cv2.imshow(win, frame)
                 key = cv2.waitKey(1) & 0xFF
                 if not self._handle_key(key):
                     break
         finally:
             self.tracker.close()
+            self.audio.close()
             cap.release()
             cv2.destroyAllWindows()
         return 0
@@ -116,7 +121,7 @@ class CollectApp:
         if self._editing_label:
             hint = "Type label, ENTER to confirm, Esc to cancel"
         else:
-            hint = "L rename label · SPACE toggle capture · Q quit"
+            hint = "L rename · SPACE capture · T theme · M mute · Q quit"
         ui.put_text(frame, hint, (14, hint_y), scale=0.42, color=ui.TEXT_MUTED, shadow=False)
         return frame
 
@@ -146,6 +151,12 @@ class CollectApp:
             # held across platforms, so a press-to-toggle "recording"
             # state is much more dependable than press-and-hold).
             self.capturing = not self.capturing
+            if self.capturing:
+                self.audio.play_sfx("capture")
+        if key in (ord("t"), ord("T")):
+            ui.set_theme(ui.next_theme_name())
+        if key in (ord("m"), ord("M")):
+            self.audio.toggle_mute()
         return True
 
 

@@ -50,6 +50,12 @@ A separate `--two-hand` mode captures both hands into a single 128-dim feature v
 ### 🌈 Animated Rainbow Skeleton
 Every camera app draws a full hand skeleton — bone connections and joints colored per-finger (thumb→pinky sweeps crimson→orange→green→blue→violet) — instead of plain dots, with fingertips gently pulsing so it reads as alive, not static.
 
+### 🎭 Theme Switcher
+Press `T` to cycle **dark / light / neon / mono** palettes — every panel, badge, and skeleton accent re-skins live across all five camera apps.
+
+### 🎬 Cinematic Vignette
+A cached radial edge-darkening applied to every frame — cheap after the first frame at a given resolution, gives the camera feed a subtle "not just a raw webcam window" polish.
+
 </td>
 <td width="50%" valign="top">
 
@@ -67,6 +73,9 @@ For signs that move (swipes, J/Z-style letters) rather than hold a pose: `collec
 
 ### ✨ Motion Trail
 While recording a motion sign, the wrist's path draws as a fading, glowing trail — dim and thin at the tail, bright and thick at the head — so you can *see* the shape of the gesture you just made, both while collecting data and while performing a sign live.
+
+### 🔊 Ambient Audio + SFX
+A looping background bed plus one-shot cues (a sign locks in, a correct/wrong Practice match, a motion recording starts/stops) — fail-soft like everything else here: no audio backend, no sound files, no crash, just quiet. `M` mutes it all.
 
 </td>
 </tr>
@@ -121,6 +130,8 @@ flowchart LR
 |:---:|:---|
 | `L` | Type a new label (e.g. `fist`, `peace`, `thumbs_up`) |
 | `SPACE` | Toggle capture on/off — records a sample every couple of frames while active |
+| `T` | Cycle color theme (dark → light → neon → mono) |
+| `M` | Mute / unmute ambient audio |
 | `Q` / `Esc` | Exit |
 
 > [!TIP]
@@ -130,7 +141,8 @@ flowchart LR
 
 | Key | Action |
 |:---:|:---|
-| `M` | Mute / unmute text-to-speech |
+| `M` | Mute / unmute text-to-speech + ambient audio |
+| `T` | Cycle color theme |
 | `N` | *(Practice only)* Skip to a new random sign |
 | `Q` / `Esc` | Exit — Practice mode prints a session summary (accuracy, best streak, avg reaction time) |
 
@@ -140,7 +152,8 @@ flowchart LR
 |:---:|:---|
 | `L` | *(Collect only)* Type a new label |
 | `SPACE` | Start recording a clip — press again to stop and save/predict |
-| `M` | *(Live only)* Mute / unmute text-to-speech |
+| `T` | Cycle color theme |
+| `M` | Mute / unmute audio (+ text-to-speech in Live) |
 | `Q` / `Esc` | Exit |
 
 ---
@@ -188,26 +201,29 @@ python main.py live_motion      # SPACE to record, then it predicts on the compl
 
 ```text
 SignSenseLive/
-├── main.py                      # CLI entry point: collect / collect_motion / train / live / live_motion / practice
+├── main.py                     # CLI entry point: collect / collect_motion / train / live / live_motion / practice
 ├── requirements.txt
 ├── signsense/
-│   ├── tracker.py               # MediaPipe wrapper (1 or 2 hands) + Left/Right organizing helper
-│   ├── features.py              # Single and dual-hand invariant feature vector transformers
-│   ├── motion_features.py       # Trajectory feature transformer for motion-based signs
+│   ├── tracker.py              # MediaPipe wrapper (1 or 2 hands) + Left/Right organizing helper
+│   ├── features.py             # Single- and dual-hand invariant feature vector transformers
+│   ├── motion_features.py      # Trajectory feature transformer for motion-based signs
 │   ├── landmarks.py             # Rainbow per-finger color scheme + skeleton connection topology
 │   ├── skeleton.py              # Animated rainbow hand-skeleton renderer (pulsing fingertips)
-│   ├── dataset.py               # CSV storage for labeled samples (any fixed feature width)
+│   ├── dataset.py              # CSV storage for labeled samples (any fixed feature width)
 │   ├── model.py                 # RandomForest classifier train/predict/save/load
 │   ├── voting.py                # Temporal majority-vote prediction smoothing (shared)
 │   ├── confusion.py             # Confusion-matrix heatmap rendering
 │   ├── speech.py                # Fail-soft, non-blocking text-to-speech
-│   ├── collect.py               # Data collection camera app — static, single/two-hand
-│   ├── collect_motion.py        # Data collection camera app — motion clips
+│   ├── audio.py                 # Fail-soft ambient music + SFX (pygame)
+│   ├── collect.py              # Data collection camera app — static, single/two-hand
+│   ├── collect_motion.py       # Data collection camera app — motion clips
 │   ├── live.py                  # Live recognition app — static, single/two-hand
 │   ├── live_motion.py           # Live recognition app — motion signs
 │   ├── practice.py              # Quiz / match mode — static, single/two-hand
-│   └── ui.py                    # UI design system (Poppins, glass panels, glow effect)
-├── assets/fonts/                # Poppins font family (OFL-licensed)
+│   └── ui.py                    # UI design system — themes, Poppins, glass panels, glow, vignette
+├── assets/
+│   ├── fonts/                   # Poppins font family (OFL-licensed)
+│   └── audio/                   # music/ + sfx/ — you provide these (see assets/audio/README.md)
 ├── models/
 │   ├── hand_landmarker.task     # MediaPipe task model (you provide this)
 │   ├── classifier.pkl           # Single-hand static classifier

@@ -18,6 +18,7 @@ import cv2
 import numpy as np
 
 from . import ui
+from .audio import AudioManager
 from .features import DUAL_FEATURE_DIM, FEATURE_DIM, dual_hand_features, landmarks_to_features
 from .model import SignClassifier
 from .skeleton import draw_skeleton
@@ -44,6 +45,7 @@ class PracticeApp:
         self.camera_index = camera_index
         self.predictor = StablePredictor()
         self.speaker = Speaker(enabled=speech)
+        self.audio = AudioManager()
 
         self.target: Optional[str] = None
         self.correct_count = 0
@@ -73,7 +75,8 @@ class PracticeApp:
             return 1
         win = "SignSense — Practice" + (" (2-hand)" if self.two_hand else "")
         cv2.namedWindow(win, cv2.WINDOW_NORMAL)
-        print(f"SignSense practice — {len(self.classifier.classes_)} signs  ·  N skip · M mute · Q quit")
+        print(f"SignSense practice — {len(self.classifier.classes_)} signs  ·  N skip · T theme · M mute · Q quit")
+        self.audio.play_music("ambient")
 
         self._session_start = time.perf_counter()
         self._next_round()
@@ -89,6 +92,7 @@ class PracticeApp:
                 hands = self.tracker.process(frame, mirrored=True)
                 self._update(hands)
                 frame = self._draw(frame, hands, w, h)
+                frame = ui.vignette(frame, strength=0.2)
 
                 cv2.imshow(win, frame)
                 key = cv2.waitKey(1) & 0xFF
@@ -96,11 +100,15 @@ class PracticeApp:
                     break
                 if key in (ord("m"), ord("M")):
                     self.speaker.toggle()
+                    self.audio.toggle_mute()
+                if key in (ord("t"), ord("T")):
+                    ui.set_theme(ui.next_theme_name())
                 if key in (ord("n"), ord("N")):
                     self._next_round()
         finally:
             self.tracker.close()
             self.speaker.close()
+            self.audio.close()
             cap.release()
             cv2.destroyAllWindows()
             self._print_summary()
@@ -138,6 +146,7 @@ class PracticeApp:
             self.wrong_count += 1
             self.streak = 0
             self.speaker.say("try again")
+            self.audio.play_sfx("wrong")
 
     def _register_hit(self, now: float) -> None:
         self.reaction_times.append(now - self._round_started_at)
@@ -145,6 +154,7 @@ class PracticeApp:
         self.streak += 1
         self.best_streak = max(self.best_streak, self.streak)
         self.speaker.say("Correct")
+        self.audio.play_sfx("correct")
         self._flash_until = now + FLASH_SECONDS
         self._next_round()
 
@@ -180,7 +190,7 @@ class PracticeApp:
         self._conf_disp = ui.smooth_toward(self._conf_disp, conf, 0.25)
         ui.progress_bar(frame, 24, 144, panel_w - 48, 4, self._conf_disp)
 
-        ui.put_text(frame, "N skip \u00b7 M mute \u00b7 Q quit", (14, h - 16), scale=0.4, color=ui.TEXT_MUTED, shadow=False)
+        ui.put_text(frame, "N skip \u00b7 T theme \u00b7 M mute \u00b7 Q quit", (14, h - 16), scale=0.4, color=ui.TEXT_MUTED, shadow=False)
         return frame
 
     def _print_summary(self) -> None:
