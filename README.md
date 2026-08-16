@@ -1,17 +1,25 @@
 <div align="center">
 
-# 🤟 SignSenseLive ✨
+  <!-- Dynamic Header Banner -->
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=auto&height=140&section=header&text=🤟%20Sign+Sense+Live&fontSize=65&fontAlignY=38&animation=twinkling&theme=blue" width="100%" alt="SignSenseLive Banner"/>
 
-**Train your own real-time hand sign recognizer using a webcam - no pretrained sign-language dataset required.**
+  <h3>✨ Real-Time Custom Hand Sign Recognition Powered by Computer Vision ✨</h3>
 
-![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![MediaPipe](https://img.shields.io/badge/MediaPipe-Hand%20Tracking-0A84FF?style=for-the-badge&logo=google&logoColor=white)
-![scikit-learn](https://img.shields.io/badge/scikit--learn-RandomForest-F7931E?style=for-the-badge&logo=scikitlearn&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-4CAF50?style=for-the-badge)
+  <p align="center">
+    <strong>Train custom gestures instantly via webcam - zero external datasets required.</strong>
+  </p>
 
-<br>
+  <br/>
 
-⭐ **If this project is useful to you, a star helps a lot!** ⭐
+  <!-- Tech Stack & Metrics Badges -->
+  <p align="center">
+    <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.10+"/>
+    <img src="https://img.shields.io/badge/MediaPipe-Hand%20Tracking-0A84FF?style=for-the-badge&logo=google&logoColor=white" alt="MediaPipe"/>
+    <img src="https://img.shields.io/badge/scikit--learn-RandomForest-F7931E?style=for-the-badge&logo=scikitlearn&logoColor=white" alt="scikit-learn"/>
+    <img src="https://img.shields.io/badge/License-MIT-4CAF50?style=for-the-badge" alt="MIT License"/>
+  </p>
+
+  <sub>⭐ Enjoying the project? Drop a star to support real-time open-source vision tools! ⭐</sub>
 
 </div>
 
@@ -182,16 +190,16 @@ python main.py practice   # quiz mode — it prompts, you sign, it scores you
 **Two-handed signs** — own dataset and model, add `--two-hand` to collect/train/live/practice:
 
 ```bash
-python main.py collect --two-hand
-python main.py train --two-hand
-python main.py live --two-hand
+python main.py collect --two-hand   # record a few two-handed signs — 40+ samples each
+python main.py train --two-hand     # train + evaluate, saves a confusion-matrix heatmap
+python main.py live --two-hand      # recognize two-handed signs live, speaks each one aloud
 ```
 
 **Motion-based signs** (swipes, moving letters) — dedicated modes, no flag needed:
 
 ```bash
 python main.py collect_motion   # SPACE to start recording a clip, SPACE again to stop
-python main.py train --motion
+python main.py train --motion   # trains a motion-sign classifier on the collected clips
 python main.py live_motion      # SPACE to record, then it predicts on the completed clip
 ```
 
@@ -201,22 +209,22 @@ python main.py live_motion      # SPACE to record, then it predicts on the compl
 
 ```text
 SignSenseLive/
-├── main.py                     # CLI entry point: collect / collect_motion / train / live / live_motion / practice
+├── main.py                      # CLI entry point: collect / collect_motion / train / live / live_motion / practice
 ├── requirements.txt
 ├── signsense/
-│   ├── tracker.py              # MediaPipe wrapper (1 or 2 hands) + Left/Right organizing helper
-│   ├── features.py             # Single- and dual-hand invariant feature vector transformers
-│   ├── motion_features.py      # Trajectory feature transformer for motion-based signs
+│   ├── tracker.py               # MediaPipe wrapper (1 or 2 hands) + Left/Right organizing helper
+│   ├── features.py              # Single- and dual-hand invariant feature vector transformers
+│   ├── motion_features.py       # Trajectory feature transformer for motion-based signs
 │   ├── landmarks.py             # Rainbow per-finger color scheme + skeleton connection topology
 │   ├── skeleton.py              # Animated rainbow hand-skeleton renderer (pulsing fingertips)
-│   ├── dataset.py              # CSV storage for labeled samples (any fixed feature width)
+│   ├── dataset.py               # CSV storage for labeled samples (any fixed feature width)
 │   ├── model.py                 # RandomForest classifier train/predict/save/load
 │   ├── voting.py                # Temporal majority-vote prediction smoothing (shared)
 │   ├── confusion.py             # Confusion-matrix heatmap rendering
 │   ├── speech.py                # Fail-soft, non-blocking text-to-speech
 │   ├── audio.py                 # Fail-soft ambient music + SFX (pygame)
-│   ├── collect.py              # Data collection camera app — static, single/two-hand
-│   ├── collect_motion.py       # Data collection camera app — motion clips
+│   ├── collect.py               # Data collection camera app — static, single/two-hand
+│   ├── collect_motion.py        # Data collection camera app — motion clips
 │   ├── live.py                  # Live recognition app — static, single/two-hand
 │   ├── live_motion.py           # Live recognition app — motion signs
 │   ├── practice.py              # Quiz / match mode — static, single/two-hand

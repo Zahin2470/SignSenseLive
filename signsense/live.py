@@ -111,7 +111,7 @@ class LiveApp:
 
     def _draw(self, frame: np.ndarray, hands, w: int, h: int) -> np.ndarray:
         for hr in hands:
-            draw_skeleton(frame, hr.landmarks, w, h)
+            draw_skeleton(frame, hr.landmarks, w, h, confidence=self.predictor.stable_confidence or 0.4)
 
         panel_w = min(w - 28, 360)
         frame = ui.glass_panel(frame, (14, 14), (14 + panel_w, 104), radius=18)
