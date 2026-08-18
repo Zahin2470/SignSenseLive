@@ -180,6 +180,8 @@ wget https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landma
 
 Run:
 
+**One-handed signs** — collect, train, live, and practice:
+
 ```bash
 python main.py collect    # record a few signs — 40+ samples each
 python main.py train      # train + evaluate, saves a confusion-matrix heatmap
@@ -193,14 +195,16 @@ python main.py practice   # quiz mode — it prompts, you sign, it scores you
 python main.py collect --two-hand   # record a few two-handed signs — 40+ samples each
 python main.py train --two-hand     # train + evaluate, saves a confusion-matrix heatmap
 python main.py live --two-hand      # recognize two-handed signs live, speaks each one aloud
+python main.py practice --two-hand  # quiz mode for two-handed signs
 ```
 
 **Motion-based signs** (swipes, moving letters) — dedicated modes, no flag needed:
 
 ```bash
-python main.py collect_motion   # SPACE to start recording a clip, SPACE again to stop
-python main.py train --motion   # trains a motion-sign classifier on the collected clips
-python main.py live_motion      # SPACE to record, then it predicts on the completed clip
+python main.py collect_motion      # SPACE to start recording a clip, SPACE again to stop
+python main.py train --motion      # trains a motion-sign classifier on the collected clips
+python main.py live_motion         # SPACE to record, then it predicts on the completed clip
+python main.py practice --motion   # quiz mode for motion-based signs
 ```
 
 ---
@@ -227,13 +231,13 @@ SignSenseLive/
 │   ├── collect_motion.py        # Data collection camera app — motion clips
 │   ├── live.py                  # Live recognition app — static, single/two-hand
 │   ├── live_motion.py           # Live recognition app — motion signs
-│   ├── practice.py              # Quiz / match mode — static, single/two-hand
+│   ├── practice.py              # Quiz / match mode — static, single/two-hand, motion
 │   └── ui.py                    # UI design system — themes, Poppins, glass panels, glow, vignette
 ├── assets/
 │   ├── fonts/                   # Poppins font family (OFL-licensed)
-│   └── audio/                   # music/ + sfx/ — you provide these (see assets/audio/README.md)
+│   └── audio/                   # music/ + sfx/ — I provide these (see assets/audio/README.md)
 ├── models/
-│   ├── hand_landmarker.task     # MediaPipe task model (you provide this)
+│   ├── hand_landmarker.task     # MediaPipe task model (I provide this)
 │   ├── classifier.pkl           # Single-hand static classifier
 │   ├── classifier_2h.pkl        # Two-handed static classifier
 │   ├── classifier_motion.pkl    # Motion-sign classifier
@@ -255,14 +259,14 @@ SignSenseLive/
 **➕ More signs**
 Just run `collect` then `train` again — zero code changes. The classifier adapts to whatever labels exist in the samples file.
 
-**🔄 Swap the classifier**
-`SignClassifier` in `model.py` wraps a standard train/predict/save/load API — swap `RandomForestClassifier` for any scikit-learn-compatible estimator without touching any of the camera apps.
+**🤲 Two hands motion**
+The two-hand-motion modes are fully supported — they just change the feature extraction to track landmarks from both hands simultaneously, allowing the classifier to recognize signs that require two-hand gestures while keeping the same collect → train → predict workflow
 
 </td>
 <td width="50%" valign="top">
 
-**🎮 Practice mode for two-hand / motion**
-`practice.py` currently quizzes single- and two-handed static signs. A motion-sign practice mode would reuse `collect_motion.py`'s start/stop recording UX plus `live_motion.py`'s prediction call — the pieces exist, they're just not wired into a quiz loop yet.
+**🔄 Swap the classifier**
+`SignClassifier` in `model.py` wraps a standard train/predict/save/load API — swap `RandomForestClassifier` for any scikit-learn-compatible estimator without touching any of the camera apps.
 
 **🌐 Beyond a webcam**
 Everything here is MediaPipe + scikit-learn, both of which also run in the browser (MediaPipe Tasks Web) or on-device (TFLite) — the feature-normalization math would carry over, though the camera apps themselves would need a full rewrite.

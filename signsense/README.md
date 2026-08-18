@@ -34,7 +34,7 @@ One hand, **static position**, with no movement.
 - ASL "Table" (both palms facing downward)
 - ASL "Book" (both hands positioned like opening a book)
 - ASL "Same"/"Friend" (both index fingers close together/hooked)
-- Hands joined together (like a Namaste gesture)
+- Hands joined together (like a Pray gesture)
 - A roof/house-shaped gesture made with both hands
 
 **Caution:** If the sign actually involves *movement* (such as real clapping), it should go to **Motion mode** instead of Two-hand Static. However, Motion mode currently supports only a single hand — see below.
@@ -68,12 +68,18 @@ Motion mode currently supports only **single-hand** gestures. Two-hand motion si
    - `thumbs_up`
    - `open_palm`
 
-2. Once that works, try 1–2 gestures in **Motion mode**, such as:
+2. Finally, move to **Two-hand mode** — this is the most complex, such as:
+   - `hands_joined`
+   - `table`
+   - `book`
+   - `friend`
+
+3. Once that works, try 1–2 gestures in **Motion mode**, such as:
    - `swipe_left`
    - `swipe_right`
-
-3. Finally, move to **Two-hand mode** — this is the most complex, so it's better to do it last.
-
+   - `letter_j`
+   - `letter_z`
+   
 ---
 
 ## Dataset and Model Separation
